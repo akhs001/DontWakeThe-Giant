@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Don't Wake the Giant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1530; color: #fff;
+    font-family: 'Lilita One', 'Arial Black', system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas { display: block; }
+  .o { text-shadow: 0 3px 0 rgba(0,0,0,.55), 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000; }
+  .hidden { display: none !important; }
+
+  #loot { position: fixed; top: 14px; left: 16px; font-size: 18px; letter-spacing: 1px; }
+  #loot b { display: block; font-size: 44px; color: #ffd54a; font-weight: normal; line-height: 1; transition: transform .15s; transform-origin: left center; }
+  #loot b.pop { transform: scale(1.35); }
+  #hearing { margin-top: 6px; font-size: 15px; opacity: .9; }
+
+  #meterWrap { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); width: min(460px, 52vw); }
+  #meterTitle { text-align: center; font-size: 19px; letter-spacing: 1px; }
+  #meter { position: relative; height: 26px; border-radius: 18px; background: #2a2244; border: 4px solid #fff;
+    overflow: hidden; box-shadow: 0 4px 0 rgba(0,0,0,.4); }
+  #meterFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 12px;
+    background: linear-gradient(180deg, #8cf59b, #3ec46d); }
+  .mark { position: absolute; top: 0; bottom: 0; width: 3px; background: rgba(255,255,255,.55); }
+  #state { text-align: center; font-size: 24px; margin-top: 1px; }
+  #meterWrap.restless #meterFill { background: linear-gradient(180deg, #ffe680, #f4b400); }
+  #meterWrap.susp #meterFill { background: linear-gradient(180deg, #ffb37a, #ff6a1a); }
+  #meterWrap.susp { animation: shake .18s infinite; }
+  #meterWrap.susp #meter { border-color: #ff8a3a; }
+  #meterWrap.awake #meterFill { background: linear-gradient(180deg, #ff7a7a, #e01e1e); }
+  #meterWrap.awake #meter { border-color: #ff3030; }
+  #meterWrap.awake { animation: shake .1s infinite; }
+  #meterWrap.flash #meter { box-shadow: 0 0 0 6px rgba(255,255,255,.7); }
+  @keyframes shake { 0%{transform:translate(-50%,0)} 25%{transform:translate(calc(-50% - 3px),1px)} 50%{transform:translate(calc(-50% + 3px),-1px)} 75%{transform:translate(calc(-50% - 2px),-1px)} 100%{transform:translate(-50%,0)} }
+
+  #warn { position: fixed; top: 112px; left: 0; right: 0; text-align: center; font-size: 30px; color: #ff4a4a; }
+  #warn.blink { animation: blink .5s infinite; }
+  #status { position: fixed; top: 150px; left: 0; right: 0; text-align: center; font-size: 22px; color: #7dffa0; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  #prompt { position: fixed; bottom: 17%; left: 50%; transform: translateX(-50%); background: rgba(20,14,40,.85);
+    border: 4px solid #ffd54a; border-radius: 16px; padding: 10px 20px; font-size: 26px; white-space: nowrap; text-align: center; }
+  #prompt .k { display: inline-block; background: #ffd54a; color: #3a2600; border-radius: 8px; padding: 0 9px; margin-right: 8px; text-shadow: none; }
+  #prompt small { display: block; font-size: 17px; margin-top: 2px; }
+  #prompt.danger { border-color: #ff4a4a; }
+
+  #tip { position: fixed; bottom: 5%; left: 50%; transform: translateX(-50%); font-size: 20px; text-align: center;
+    background: rgba(20,14,40,.7); padding: 8px 18px; border-radius: 12px; transition: opacity .4s; max-width: 92vw; }
+
+  #vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(220,0,0,.75) 100%); }
+  #flash { position: fixed; inset: 0; pointer-events: none; background: #fff; opacity: 0; }
+
+  #banner { position: fixed; top: 42%; left: 0; right: 0; text-align: center; font-size: clamp(40px, 8vw, 92px);
+    color: #ff4747; pointer-events: none; opacity: 0; transform: scale(.3); }
+  #banner.show { animation: bannerPop 2.2s ease-out forwards; }
+  @keyframes bannerPop { 0%{opacity:0;transform:scale(.3) rotate(-6deg)} 12%{opacity:1;transform:scale(1.15) rotate(2deg)} 20%{transform:scale(1) rotate(0)} 80%{opacity:1} 100%{opacity:0;transform:scale(1.05)} }
+
+  .floater { position: fixed; pointer-events: none; transform: translate(-50%,-50%); white-space: nowrap; }
+
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; background: radial-gradient(ellipse at center, rgba(30,20,60,.55), rgba(10,6,24,.9)); padding: 20px; }
+  #title { font-size: clamp(44px, 9vw, 100px); line-height: .95; color: #ffd54a; transform: rotate(-3deg); }
+  #title span { color: #ff5a5a; }
+  .sub { font-size: clamp(18px, 3vw, 26px); margin: 18px 0 8px; }
+  .controls { font-size: 17px; opacity: .9; line-height: 1.7; margin: 8px 0 22px; }
+  .controls .k { display: inline-block; background: #fff; color: #2a2244; border-radius: 6px; padding: 0 7px; margin: 0 2px; text-shadow: none; }
+  .btn { font-family: inherit; font-size: 34px; color: #fff; background: #3ec46d; border: none; border-bottom: 7px solid #1f8f45;
+    border-radius: 18px; padding: 12px 46px; cursor: pointer; letter-spacing: 1px; }
+  .btn:active { transform: translateY(4px); border-bottom-width: 3px; }
+  .small { font-size: 16px; opacity: .75; margin-top: 12px; }
+  #endTitle { font-size: clamp(56px, 11vw, 120px); line-height: 1; }
+  #endTitle.win { color: #6dff8f; animation: winPop .6s ease-out; }
+  #endTitle.lose { color: #ff4a4a; animation: winPop .6s ease-out; }
+  @keyframes winPop { 0%{transform:scale(.2) rotate(-10deg)} 60%{transform:scale(1.2) rotate(3deg)} 100%{transform:scale(1)} }
+  #endSub { font-size: clamp(26px, 5vw, 46px); margin: 10px 0 4px; color: #ffd54a; }
+  #endExtra { font-size: 20px; margin-bottom: 22px; opacity: .95; line-height: 1.5; }
+
+  #danger { position: fixed; transform: translate(-50%,-50%); color: #ff4a4a; text-align: center; line-height: 1; pointer-events: none; animation: blink .4s infinite; }
+  #danger #dArrow { font-size: 1.6em; }
+  #lockHint { position: fixed; bottom: 10px; right: 14px; font-size: 14px; opacity: .7; }
+
+  /* touch */
+  #touch { position: fixed; inset: 0; pointer-events: none; }
+  #stick { position: fixed; left: 40px; bottom: 40px; width: 130px; height: 130px; border-radius: 50%;
+    background: rgba(255,255,255,.12); border: 3px solid rgba(255,255,255,.35); }
+  #knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.6); }
+  .tbtn { position: fixed; pointer-events: auto; width: 76px; height: 76px; border-radius: 50%; border: 3px solid #fff;
+    background: rgba(40,30,70,.6); font-family: inherit; color: #fff; font-size: 16px; }
+  .tbtn.on { background: rgba(255,213,74,.7); color: #3a2600; }
+  #tJump { right: 26px; bottom: 36px; }
+  #tSteal { right: 116px; bottom: 30px; background: rgba(255,213,74,.75); color: #3a2600; }
+  #tRun { right: 36px; bottom: 126px; }
+</style>
+</head>
+<body>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<div id="hud" class="hidden">
+  <div id="loot" class="o">CARRIED LOOT <b id="lootVal">$0</b><div id="hearing"></div></div>
+  <div id="meterWrap" class="o">
+    <div id="meterTitle">GIANT SLEEP 💤</div>
+    <div id="meter"><div id="meterFill"></div><div class="mark" style="left:35%"></div><div class="mark" style="left:70%"></div></div>
+    <div id="state">DEEP SLEEP</div>
+  </div>
+  <div id="warn" class="o"></div>
+  <div id="status" class="o"></div>
+  <div id="prompt" class="o hidden"></div>
+  <div id="tip" class="o"></div>
+  <div id="lockHint" class="o hidden">Click to control the camera</div>
+  <div id="danger" class="o hidden"><div id="dArrow">▲</div><div id="dDist"></div></div>
+</div>
+<div id="banner" class="o"></div>
+<div id="floaters"></div>
+
+<div id="touch" class="hidden">
+  <div id="stick"><div id="knob"></div></div>
+  <button class="tbtn" id="tJump">JUMP</button>
+  <button class="tbtn" id="tSteal">STEAL</button>
+  <button class="tbtn" id="tRun">RUN</button>
+</div>
+
+<div id="start" class="overlay">
+  <div id="title" class="o">DON'T WAKE<br><span>THE GIANT</span></div>
+  <div class="sub o">Sneak in. Steal his treasure. Get out before he wakes up.</div>
+  <div class="controls o">
+    <span class="k">W</span><span class="k">A</span><span class="k">S</span><span class="k">D</span> move &nbsp;·&nbsp;
+    <span class="k">MOUSE</span> camera &nbsp;·&nbsp; <span class="k">SHIFT</span> run (loud!) &nbsp;·&nbsp;
+    <span class="k">SPACE</span> jump &nbsp;·&nbsp; <span class="k">E</span> steal<br>
+    Every sound fills the meter. Stand still and he settles down.<br>
+    The closer you get to him, the better the loot — and the better he hears.
+  </div>
+  <button class="btn" id="playBtn">PLAY</button>
+</div>
+
+<div id="end" class="overlay hidden">
+  <div id="endTitle" class="o"></div>
+  <div id="endSub" class="o"></div>
+  <div id="endExtra" class="o"></div>
+  <button class="btn" id="againBtn">PLAY AGAIN</button>
+  <div class="small o">or press SPACE</div>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
